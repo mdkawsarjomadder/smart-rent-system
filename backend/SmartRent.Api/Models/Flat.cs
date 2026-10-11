@@ -4,8 +4,9 @@ namespace SmartRent.Api.Models;
 
 public enum FlatStatus
 {
-    Vacant,
-    Occupied
+  Available = 0, // অথবা Vacant এর জায়গায় এটি রাখতে পারেন
+    Occupied = 1,
+    UnderMaintenance = 2
 }
 
 public class Flat
@@ -16,7 +17,7 @@ public class Flat
     public decimal BaseRent { get; set; }
     public int Bedrooms { get; set; }
     public int Bathrooms { get; set; }
-    public FlatStatus Status { get; set; } = FlatStatus.Vacant;
+    public FlatStatus Status { get; set; } = FlatStatus.Available;
 
     // Navigation Properties
     public Tenant? CurrentTenant { get; set; }

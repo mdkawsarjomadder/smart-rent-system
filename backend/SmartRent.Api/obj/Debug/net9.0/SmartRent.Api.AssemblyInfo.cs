@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SmartRent.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d43487df3c45fdec38befaccf8c762031ab326b4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9954fc8c6e8d24045cd858b4e6654b6782d365ce")]
 [assembly: System.Reflection.AssemblyProductAttribute("SmartRent.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SmartRent.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

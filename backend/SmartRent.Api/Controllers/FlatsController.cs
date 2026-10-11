@@ -67,6 +67,73 @@ public class FlatsController : ControllerBase
         return Ok(flat);
     }
 
+    // GET: api/flats/{id}/details
+    [HttpGet("{id:int}/details")]
+    public async Task<IActionResult> GetFlatDetails(int id)
+    {
+        // ১. ফ্ল্যাটের মূল তথ্য ও বর্তমান ভাড়াটিয়া আনা
+        var flat = await _context.Flats
+            .Include(f => f.CurrentTenant)
+            .FirstOrDefaultAsync(f => f.Id == id);
+
+        if (flat == null)
+        {
+            return NotFound(new { message = $"Flat with ID {id} not found." });
+        }
+
+        // ২. সরাসরি Tenants টেবিল থেকে এই ফ্ল্যাটের সব ভাড়াটিয়া আনা
+        var tenantHistory = await _context.Tenants
+            .Where(t => t.FlatId == id)
+            .OrderByDescending(t => t.MoveInDate)
+            .Select(t => new
+            {
+                t.Id,
+                t.FullName,
+                t.PhoneNumber,
+                t.MoveInDate,
+                t.IsActive
+            })
+            .ToListAsync();
+
+        // ৩. সরাসরি Invoices টেবিল থেকে এই ফ্ল্যাটের সব ইনভয়েস আনা
+        var billingHistory = await _context.Invoices
+            .Where(i => i.FlatId == id)
+            .OrderByDescending(i => i.DueDate)
+            .Select(i => new
+            {
+                i.Id,
+                i.InvoiceNumber,
+                i.BillingMonth,
+                i.TotalAmount,
+                i.DueDate,
+                i.PaidDate,
+                IsPaid = i.IsPaid || i.Status == PaymentStatus.Paid
+            })
+            .ToListAsync();
+
+        var result = new
+        {
+            flat.Id,
+            flat.FlatNumber,
+            flat.Floor,
+            flat.BaseRent,
+            Status = flat.Status.ToString(),
+            CurrentTenant = flat.CurrentTenant == null ? null : new
+            {
+                flat.CurrentTenant.Id,
+                flat.CurrentTenant.FullName,
+                flat.CurrentTenant.PhoneNumber,
+                flat.CurrentTenant.NidNumber,
+                flat.CurrentTenant.MoveInDate,
+                flat.CurrentTenant.SecurityDeposit
+            },
+            TenantHistory = tenantHistory,
+            BillingHistory = billingHistory
+        };
+
+        return Ok(result);
+    }
+
     // POST: api/flats
     [HttpPost]
     public async Task<ActionResult<FlatResponseDto>> CreateFlat([FromBody] CreateFlatDto dto)
@@ -78,7 +145,7 @@ public class FlatsController : ControllerBase
             BaseRent = dto.BaseRent,
             Bedrooms = dto.Bedrooms,
             Bathrooms = dto.Bathrooms,
-            Status = FlatStatus.Available
+            Status = FlatStatus.Available // Available ব্যবহার করা হয়েছে
         };
 
         _context.Flats.Add(flat);
@@ -99,6 +166,32 @@ public class FlatsController : ControllerBase
         return CreatedAtAction(nameof(GetFlat), new { id = flat.Id }, responseDto);
     }
 
+    // POST: api/flats/{id}/vacate
+    [HttpPost("{id:int}/vacate")]
+    public async Task<IActionResult> VacateFlat(int id)
+    {
+        var flat = await _context.Flats.FindAsync(id);
+        if (flat == null)
+        {
+            return NotFound(new { message = $"Flat with ID {id} not found." });
+        }
+
+        // এই ফ্ল্যাটের বর্তমান একটিভ ভাড়াটিয়াকে খুঁজে বের করা
+        var activeTenant = await _context.Tenants
+            .FirstOrDefaultAsync(t => t.FlatId == id && t.IsActive);
+
+        if (activeTenant != null)
+        {
+            activeTenant.IsActive = false; // ভাড়াটিয়া নিষ্ক্রিয় করা হলো
+        }
+
+        // ফ্ল্যাট স্ট্যাটাস Available করা হলো
+        flat.Status = FlatStatus.Available;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = $"Flat {flat.FlatNumber} has been vacated successfully." });
+    }
+
     // PUT: api/flats/{id}
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateFlat(int id, [FromBody] UpdateFlatDto dto)
@@ -117,8 +210,9 @@ public class FlatsController : ControllerBase
         flat.Status = (FlatStatus)dto.Status;
 
         await _context.SaveChangesAsync();
-        return NoContent();
+        return Ok(flat);
     }
+
 
     // DELETE: api/flats/{id}
     [HttpDelete("{id:int}")]

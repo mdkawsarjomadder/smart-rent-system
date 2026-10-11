@@ -27,3 +27,5 @@ public class FlatResponseDto
     public FlatStatus Status { get; set; }
     public string? CurrentTenantName { get; set; }
 }
+
+

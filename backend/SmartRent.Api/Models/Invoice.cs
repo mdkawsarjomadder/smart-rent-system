@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SmartRent.Api.Models;
 
@@ -11,9 +8,9 @@ public enum PaymentStatus
     Paid
 }
 
-    public class Invoice
-    {
-       public int Id { get; set; }
+public class Invoice
+{
+    public int Id { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
     public string BillingMonth { get; set; } = string.Empty;
     
@@ -22,15 +19,19 @@ public enum PaymentStatus
     public decimal GasBill { get; set; } = 1080;
     public decimal WaterBill { get; set; }
     
+    // Computed Total Amount
     public decimal TotalAmount => BaseRent + ElectricityBill + GasBill + WaterBill;
 
     public DateTime DueDate { get; set; }
     public DateTime? PaidDate { get; set; }
-    public PaymentStatus Status { get; set; } = PaymentStatus.Unpaid;
 
+    public PaymentStatus Status { get; set; } = PaymentStatus.Unpaid;
+    public bool IsPaid { get; set; } = false;
+
+    // Relationships
     public int FlatId { get; set; }
     public Flat? Flat { get; set; }
 
     public int TenantId { get; set; }
     public Tenant? Tenant { get; set; } 
-    }
+}

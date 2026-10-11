@@ -160,6 +160,31 @@ public class TenantsController : ControllerBase
         return NoContent();
     }
 
+
+    // PATCH: api/invoices/{id}/pay athoba PUT: api/invoices/{id}/pay
+   [HttpPatch("{id:int}/pay")]
+    [HttpPut("{id:int}/pay")]
+    public async Task<IActionResult> PayInvoice(int id)
+    {
+        var invoice = await _context.Invoices.FindAsync(id);
+        if (invoice == null)
+        {
+            return NotFound(new { message = $"Invoice with ID {id} not found." });
+        }
+
+        if (invoice.IsPaid)
+        {
+            return BadRequest(new { message = "Invoice is already paid." });
+        }
+
+        invoice.IsPaid = true;
+        invoice.Status = PaymentStatus.Paid;
+        invoice.PaidDate = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Invoice marked as paid successfully." });
+    }
+
     // DELETE: api/tenants/5
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteTenant(int id)

@@ -17,7 +17,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJs", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -31,9 +34,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// লোকাল ডেভেলপমেন্টে HTTP পোর্ট (5075) দিয়ে কাজ করার সময় 
+// HttpsRedirection বন্ধ রাখাই নিরাপদ, যাতে CORS রিডাইরেক্ট এরর না হয়
+// app.UseHttpsRedirection();
 
-// CORS মিডলওয়্যার
+// CORS মিডলওয়্যার
 app.UseCors("AllowNextJs");
 
 app.UseAuthorization();

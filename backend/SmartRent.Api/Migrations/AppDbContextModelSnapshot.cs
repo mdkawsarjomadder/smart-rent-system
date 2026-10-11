@@ -89,6 +89,9 @@ namespace SmartRent.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsPaid")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("PaidDate")
                         .HasColumnType("datetime2");
 

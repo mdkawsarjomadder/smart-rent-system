@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Flat> Flats => Set<Flat>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<Expense> Expenses => Set<Expense>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

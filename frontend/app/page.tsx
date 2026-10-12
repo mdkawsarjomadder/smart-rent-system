@@ -2,16 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link'; 
-import { getFlats, getInvoices, payInvoice, vacateFlat, Flat, Invoice } from './services/api';
+import {
+  getFlats,
+  getInvoices,
+  getExpenses,
+  payInvoice,
+  vacateFlat,
+  Flat,
+  Invoice,
+  Expense,
+} from './services/api';
 import AddFlatModal from './components/AddFlatModal';
 import AssignTenantModal from './components/AssignTenantModal';
 import GenerateInvoiceModal from './components/GenerateInvoiceModal';
 import InvoiceReceiptModal from './components/InvoiceReceiptModal';
 import BulkInvoiceModal from './components/BulkInvoiceModal';
+import AddExpenseModal from './components/AddExpenseModal';
 
 export default function HomePage() {
   const [flats, setFlats] = useState<Flat[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,20 +30,36 @@ export default function HomePage() {
   const [isTenantModalOpen, setIsTenantModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
   // রসিদের জন্য স্টেট
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
+  // ডিফল্ট মান হিসেবে 'ALL' থাকবে (প্রি-রেন্ডারিং এরর এড়াতে)
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
+
+  // ক্লায়েন্ট ব্রাউজারে পেজ মাউন্ট হওয়ার পর বর্তমান মাস সেট করা
+  useEffect(() => {
+    const currentMonth = new Date().toLocaleString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    });
+    setSelectedMonth(currentMonth);
+  }, []);
+
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [flatsData, invoicesData] = await Promise.all([
+      const [flatsData, invoicesData, expensesData] = await Promise.all([
         getFlats(),
         getInvoices().catch(() => []),
+        getExpenses().catch(() => []),
       ]);
       setFlats(flatsData);
       setInvoices(invoicesData);
+      setExpenses(expensesData);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -68,18 +95,47 @@ export default function HomePage() {
     }
   };
 
-  // --- Analytics Calculations ---
+  // --- Analytics Calculations (সঠিকভাবে Occupied কাউন্ট) ---
   const totalFlats = flats.length;
-  const occupiedFlats = flats.filter((f) => f.status === 1).length;
+  const occupiedFlats = flats.filter(
+    (f) => Boolean(f.currentTenantName || f.status === 1 || String(f.status).toLowerCase() === 'occupied')
+  ).length;
   const vacantFlats = totalFlats - occupiedFlats;
   const occupancyRate = totalFlats > 0 ? Math.round((occupiedFlats / totalFlats) * 100) : 0;
 
-  const totalCollected = invoices
+// ড্রপডাউনের জন্য সব অনন্য (Unique) মাসের তালিকা তৈরি
+  const availableMonths = Array.from(
+    new Set([
+      ...invoices.map((inv) => inv.billingMonth),
+      ...expenses.map((exp) =>
+        new Date(exp.expenseDate).toLocaleString('en-US', { month: 'long', year: 'numeric' })
+      ),
+    ])
+  ).filter(Boolean);
+
+  // সিলেক্ট করা মাসের ভিত্তিতে ইনভয়েস ও খরচ ফিল্টার করা
+  const filteredInvoices = selectedMonth === 'ALL'
+    ? invoices
+    : invoices.filter((inv) => inv.billingMonth?.toLowerCase() === selectedMonth.toLowerCase());
+
+  const filteredExpenses = selectedMonth === 'ALL'
+    ? expenses
+    : expenses.filter((exp) => {
+        const expMonth = new Date(exp.expenseDate).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        return expMonth.toLowerCase() === selectedMonth.toLowerCase();
+      });
+
+  // ফিল্টার করা ডাটা থেকে আর্থিক হিসাব
+  const totalCollected = filteredInvoices
     .filter((inv) => inv.isPaid)
     .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
-  const unpaidInvoices = invoices.filter((inv) => !inv.isPaid);
+  const unpaidInvoices = filteredInvoices.filter((inv) => !inv.isPaid);
   const totalPending = unpaidInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+
+  // ফিল্টার করা খরচ ও নিট লাভ
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const netProfit = totalCollected - totalExpenses;
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 sm:p-8">
@@ -89,7 +145,7 @@ export default function HomePage() {
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Smart Rent Dashboard</h1>
-            <p className="text-slate-500 text-sm mt-1">Real-time overview of apartments, dues, and revenue</p>
+            <p className="text-slate-500 text-sm mt-1">Real-time overview of apartments, dues, revenue, and expenses</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -132,6 +188,14 @@ export default function HomePage() {
             >
               ⚡ Bulk Bills
             </button>
+
+            {/* Add Expense Button */}
+            <button
+              onClick={() => setIsExpenseModalOpen(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+            >
+              - Add Expense
+            </button>
           </div>
         </header>
 
@@ -141,8 +205,33 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Month & Period Filter Bar */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700">📅 Filter Period:</span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-slate-50 border border-slate-300 text-slate-800 text-sm font-medium rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="ALL">All Time (সব সময়ের মোট হিসাব)</option>
+              {availableMonths.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="text-xs text-slate-500">
+            Showing stats for: <span className="font-bold text-slate-800">{selectedMonth === 'ALL' ? 'Lifetime Records' : selectedMonth}</span>
+          </div>
+        </div>
+
         {/* 1. Quick Stats & Analytics Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
+          {/* Total Apartments (আপনার চাওয়া অংশ) */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-start">
               <div>
@@ -158,22 +247,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Occupancy Rate</p>
-                <h3 className="text-2xl font-bold text-slate-800 mt-1">{occupancyRate}%</h3>
-              </div>
-              <span className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm">📊</span>
-            </div>
-            <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
-              <div
-                className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                style={{ width: `${occupancyRate}%` }}
-              ></div>
-            </div>
-          </div>
-
+          {/* Collected Revenue */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-start">
               <div>
@@ -183,22 +257,40 @@ export default function HomePage() {
               <span className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-sm">✓</span>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Total cleared invoices: <span className="font-semibold text-slate-700">{invoices.filter((i) => i.isPaid).length}</span>
+              Pending: <span className="font-semibold text-rose-600">৳{totalPending.toLocaleString()}</span>
             </p>
           </div>
 
+          {/* Total Expenses */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Dues</p>
-                <h3 className="text-2xl font-bold text-rose-600 mt-1">৳{totalPending.toLocaleString()}</h3>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Expenses</p>
+                <h3 className="text-2xl font-bold text-rose-600 mt-1">৳{totalExpenses.toLocaleString()}</h3>
               </div>
-              <span className="p-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold text-sm">⚠️</span>
+              <span className="p-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold text-sm">📉</span>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Unpaid bills: <span className="font-semibold text-rose-600">{unpaidInvoices.length} invoices</span>
+              Total logs: <span className="font-semibold text-slate-700">{expenses.length} records</span>
             </p>
           </div>
+
+          {/* Net Profit */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Net Profit</p>
+                <h3 className={`text-2xl font-bold mt-1 ${netProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+                  ৳{netProfit.toLocaleString()}
+                </h3>
+              </div>
+              <span className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm">💰</span>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Revenue minus expenses
+            </p>
+          </div>
+
         </div>
 
         {/* 2. Apartments Section */}
@@ -223,7 +315,6 @@ export default function HomePage() {
                   className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-center mb-4">
-                    {/* ফ্ল্যাট ডিটেইলস পেজের লিঙ্ক */}
                     <Link
                       href={`/flats/${flat.id}`}
                       className="text-xl font-bold text-slate-800 hover:text-blue-600 transition flex items-center gap-1 group"
@@ -232,15 +323,25 @@ export default function HomePage() {
                       <span className="text-sm opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                     </Link>
 
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                        flat.status === 1
-                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      }`}
-                    >
-                      {flat.status === 1 ? 'Occupied' : 'Vacant'}
-                    </span>
+                    {/* কার্ডের ভেতরে ফ্ল্যাট স্ট্যাটাস ব্যাজ (আপনার দেওয়া অংশ) */}
+                    {(() => {
+                      const isOccupied = Boolean(
+                        flat.currentTenantName ||
+                        flat.status === 1 ||
+                        String(flat.status).toLowerCase() === 'occupied'
+                      );
+                      return (
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                            isOccupied
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          {isOccupied ? 'Occupied' : 'Vacant'}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="space-y-1.5 text-sm text-slate-600 mb-4">
@@ -365,6 +466,62 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* 4. Expenses Section */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-slate-800">Property Expenses Log</h2>
+            <button
+              onClick={() => setIsExpenseModalOpen(true)}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 border border-rose-200 px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 transition"
+            >
+              + New Expense
+            </button>
+          </div>
+          
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            {expenses.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">No expenses logged yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-600">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Category</th>
+                      <th className="px-6 py-4">Description</th>
+                      <th className="px-6 py-4">Flat / Scope</th>
+                      <th className="px-6 py-4 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {expenses.map((exp) => (
+                      <tr key={exp.id} className="hover:bg-slate-50/50 transition">
+                        <td className="px-6 py-4 text-xs text-slate-500">
+                          {new Date(exp.expenseDate).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            {exp.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium text-slate-800">{exp.description}</td>
+                        <td className="px-6 py-4 text-xs font-semibold text-slate-500">{exp.flatNumber}</td>
+                        <td className="px-6 py-4 font-bold text-rose-600 text-right">
+                          -৳{exp.amount.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Modals */}
         <AddFlatModal
           isOpen={isFlatModalOpen}
@@ -383,20 +540,22 @@ export default function HomePage() {
           onSuccess={loadData}
           flats={flats}
         />
-
-        {/* Invoice Receipt Modal */}
         <InvoiceReceiptModal
           invoice={selectedInvoice}
           isOpen={isReceiptOpen}
           onClose={() => setIsReceiptOpen(false)}
         />
-        {/* Bulk Invoice Receipt Modal */}
         <BulkInvoiceModal
           isOpen={isBulkModalOpen}
           onClose={() => setIsBulkModalOpen(false)}
           onSuccess={loadData}
         />
-        
+        <AddExpenseModal
+          isOpen={isExpenseModalOpen}
+          onClose={() => setIsExpenseModalOpen(false)}
+          onSuccess={loadData}
+          flats={flats}
+        />
       </div>
     </main>
   );

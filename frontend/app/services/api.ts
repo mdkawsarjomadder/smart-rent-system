@@ -264,3 +264,39 @@ export const updateFlat = async (id: number, data: UpdateFlatInput): Promise<Fla
 
   return res.json();
 };
+
+
+  //expenses Create ------------------|
+
+  export interface Expense {
+    id: number;
+    category: string;
+    description: string;
+    amount: number;
+    expenseDate: string;
+    flatId?: number | null;
+    flatNumber: string;
+  }
+
+  export interface CreateExpenseInput {
+    category: string;
+    description: string;
+    amount: number;
+    flatId?: number | null;
+  }
+
+  export const getExpenses = async (): Promise<Expense[]> => {
+    const res = await fetch(`${BASE_URL}/expenses`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch expenses');
+    return res.json();
+  };
+
+  export const createExpense = async (data: CreateExpenseInput): Promise<Expense> => {
+    const res = await fetch(`${BASE_URL}/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create expense');
+    return res.json();
+  };

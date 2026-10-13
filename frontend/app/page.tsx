@@ -18,6 +18,8 @@ import GenerateInvoiceModal from './components/GenerateInvoiceModal';
 import InvoiceReceiptModal from './components/InvoiceReceiptModal';
 import BulkInvoiceModal from './components/BulkInvoiceModal';
 import AddExpenseModal from './components/AddExpenseModal';
+import FinancialReportModal from './components/FinancialReportModal';
+import FinancialChart from './components/FinancialChart';
 
 export default function HomePage() {
   const [flats, setFlats] = useState<Flat[]>([]);
@@ -31,6 +33,7 @@ export default function HomePage() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   // রসিদের জন্য স্টেট
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -206,6 +209,7 @@ export default function HomePage() {
         )}
 
         {/* Month & Period Filter Bar */}
+      {/* Month & Period Filter Bar */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-slate-700">📅 Filter Period:</span>
@@ -223,8 +227,18 @@ export default function HomePage() {
             </select>
           </div>
 
-          <div className="text-xs text-slate-500">
-            Showing stats for: <span className="font-bold text-slate-800">{selectedMonth === 'ALL' ? 'Lifetime Records' : selectedMonth}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-slate-500 hidden sm:inline">
+              Showing: <strong className="text-slate-800">{selectedMonth === 'ALL' ? 'Lifetime Records' : selectedMonth}</strong>
+            </span>
+
+            {/* PDF Report Button */}
+            <button
+              onClick={() => setIsReportOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>📄</span> Export PDF Report
+            </button>
           </div>
         </div>
 
@@ -292,6 +306,8 @@ export default function HomePage() {
           </div>
 
         </div>
+        {/* 1.5 Financial Trends Visual Analytics */}
+        <FinancialChart invoices={invoices} expenses={expenses} />
 
         {/* 2. Apartments Section */}
         <div>
@@ -555,6 +571,17 @@ export default function HomePage() {
           onClose={() => setIsExpenseModalOpen(false)}
           onSuccess={loadData}
           flats={flats}
+        />
+        <FinancialReportModal
+          isOpen={isReportOpen}
+          onClose={() => setIsReportOpen(false)}
+          selectedMonth={selectedMonth}
+          invoices={filteredInvoices}
+          expenses={filteredExpenses}
+          totalCollected={totalCollected}
+          totalPending={totalPending}
+          totalExpenses={totalExpenses}
+          netProfit={netProfit}
         />
       </div>
     </main>

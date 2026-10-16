@@ -73,53 +73,59 @@ public class TenantsController : ControllerBase
         return Ok(tenant);
     }
 
-    // POST: api/tenants
-    [HttpPost]
-    public async Task<ActionResult<TenantResponseDto>> RegisterTenant([FromBody] CreateTenantDto dto)
+   // POST: api/tenants
+[HttpPost]
+public async Task<ActionResult<TenantResponseDto>> RegisterTenant([FromBody] CreateTenantDto dto)
+{
+    if (!ModelState.IsValid)
     {
-        var flat = await _context.Flats.FindAsync(dto.FlatId);
-        if (flat == null)
-        {
-            return NotFound(new { message = $"Flat with ID {dto.FlatId} not found." });
-        }
-
-        if (flat.Status == FlatStatus.Occupied)
-        {
-            return BadRequest(new { message = $"Flat with ID {dto.FlatId} is already occupied." });
-        }
-
-        var tenant = new Tenant
-        {
-            FullName = dto.FullName,
-            PhoneNumber = dto.PhoneNumber,
-            NidNumber = dto.NidNumber,
-            SecurityDeposit = dto.SecurityDeposit,
-            FlatId = dto.FlatId,
-            MoveInDate = dto.MoveInDate == default ? DateTime.UtcNow : dto.MoveInDate,
-            IsActive = dto.IsActive
-        };
-
-        // Update flat status on tenant assignment
-        flat.Status = FlatStatus.Occupied;
-
-        _context.Tenants.Add(tenant);
-        await _context.SaveChangesAsync();
-
-        var responseDto = new TenantResponseDto
-        {
-            Id = tenant.Id,
-            FullName = tenant.FullName,
-            PhoneNumber = tenant.PhoneNumber,
-            NidNumber = tenant.NidNumber,
-            SecurityDeposit = tenant.SecurityDeposit,
-            MoveInDate = tenant.MoveInDate,
-            IsActive = tenant.IsActive,
-            FlatId = flat.Id,
-            FlatNumber = flat.FlatNumber
-        };
-
-        return CreatedAtAction(nameof(GetTenant), new { id = tenant.Id }, responseDto);
+        return BadRequest(ModelState);
     }
+
+    var flat = await _context.Flats.FindAsync(dto.FlatId);
+    if (flat == null)
+    {
+        return NotFound(new { message = $"Flat with ID {dto.FlatId} not found." });
+    }
+
+    if (flat.Status == FlatStatus.Occupied)
+    {
+        return BadRequest(new { message = $"Flat with ID {dto.FlatId} is already occupied." });
+    }
+
+    var tenant = new Tenant
+    {
+        FullName = dto.FullName.Trim(),
+        PhoneNumber = dto.PhoneNumber.Trim(),
+        NidNumber = dto.NidNumber ?? string.Empty,
+        SecurityDeposit = dto.SecurityDeposit,
+        FlatId = dto.FlatId,
+        MoveInDate = dto.MoveInDate == default ? DateTime.UtcNow : dto.MoveInDate,
+        IsActive = dto.IsActive
+    };
+
+    // ফ্ল্যাট স্ট্যাটাস Occupied করা হলো
+    flat.Status = FlatStatus.Occupied;
+
+    _context.Tenants.Add(tenant);
+    await _context.SaveChangesAsync();
+
+    var responseDto = new TenantResponseDto
+    {
+        Id = tenant.Id,
+        FullName = tenant.FullName,
+        PhoneNumber = tenant.PhoneNumber,
+        NidNumber = tenant.NidNumber,
+        SecurityDeposit = tenant.SecurityDeposit,
+        MoveInDate = tenant.MoveInDate,
+        IsActive = tenant.IsActive,
+        FlatId = flat.Id,
+        FlatNumber = flat.FlatNumber
+    };
+
+    // CreatedAtAction-এর রুট এরর এড়াতে সরাসরি 201 Created রিটার্ন করুন:
+    return StatusCode(201, responseDto);
+}
 
     // PUT: api/tenants/5
     [HttpPut("{id:int}")]

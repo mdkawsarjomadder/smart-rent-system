@@ -4,13 +4,14 @@ using SmartRent.Api.Data;
 using SmartRent.Api.DTOs;
 using SmartRent.Api.Models;
 
+
 namespace SmartRent.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class FlatsController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly AppDbContext _context; // AppDbContext থেকে ApplicationDbContext-এ পরিবর্তন করা হলো
 
     public FlatsController(AppDbContext context)
     {
@@ -40,7 +41,7 @@ public class FlatsController : ControllerBase
     }
 
     // GET: api/flats/{id}
-    [HttpGet("{id:int}")]
+    [HttpGet("{id:int}", Name = "GetFlat")]
     public async Task<ActionResult<FlatResponseDto>> GetFlat(int id)
     {
         var flat = await _context.Flats
@@ -71,7 +72,6 @@ public class FlatsController : ControllerBase
     [HttpGet("{id:int}/details")]
     public async Task<IActionResult> GetFlatDetails(int id)
     {
-        // ১. ফ্ল্যাটের মূল তথ্য ও বর্তমান ভাড়াটিয়া আনা
         var flat = await _context.Flats
             .Include(f => f.CurrentTenant)
             .FirstOrDefaultAsync(f => f.Id == id);
@@ -81,7 +81,6 @@ public class FlatsController : ControllerBase
             return NotFound(new { message = $"Flat with ID {id} not found." });
         }
 
-        // ২. সরাসরি Tenants টেবিল থেকে এই ফ্ল্যাটের সব ভাড়াটিয়া আনা
         var tenantHistory = await _context.Tenants
             .Where(t => t.FlatId == id)
             .OrderByDescending(t => t.MoveInDate)
@@ -95,7 +94,6 @@ public class FlatsController : ControllerBase
             })
             .ToListAsync();
 
-        // ৩. সরাসরি Invoices টেবিল থেকে এই ফ্ল্যাটের সব ইনভয়েস আনা
         var billingHistory = await _context.Invoices
             .Where(i => i.FlatId == id)
             .OrderByDescending(i => i.DueDate)
@@ -104,7 +102,7 @@ public class FlatsController : ControllerBase
                 i.Id,
                 i.InvoiceNumber,
                 i.BillingMonth,
-                i.TotalAmount,
+                i.BaseRent, // TotalAmount মডেল অনুযায়ী ঠিক রাখুন
                 i.DueDate,
                 i.PaidDate,
                 IsPaid = i.IsPaid || i.Status == PaymentStatus.Paid
@@ -138,6 +136,11 @@ public class FlatsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<FlatResponseDto>> CreateFlat([FromBody] CreateFlatDto dto)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         var flat = new Flat
         {
             FlatNumber = dto.FlatNumber,
@@ -145,7 +148,7 @@ public class FlatsController : ControllerBase
             BaseRent = dto.BaseRent,
             Bedrooms = dto.Bedrooms,
             Bathrooms = dto.Bathrooms,
-            Status = FlatStatus.Available // Available ব্যবহার করা হয়েছে
+            Status = FlatStatus.Available
         };
 
         _context.Flats.Add(flat);
@@ -163,7 +166,7 @@ public class FlatsController : ControllerBase
             CurrentTenantName = null
         };
 
-        return CreatedAtAction(nameof(GetFlat), new { id = flat.Id }, responseDto);
+        return StatusCode(201, responseDto); // নিরাপদ 201 Created রেসপন্স
     }
 
     // POST: api/flats/{id}/vacate
@@ -176,16 +179,14 @@ public class FlatsController : ControllerBase
             return NotFound(new { message = $"Flat with ID {id} not found." });
         }
 
-        // এই ফ্ল্যাটের বর্তমান একটিভ ভাড়াটিয়াকে খুঁজে বের করা
         var activeTenant = await _context.Tenants
             .FirstOrDefaultAsync(t => t.FlatId == id && t.IsActive);
 
         if (activeTenant != null)
         {
-            activeTenant.IsActive = false; // ভাড়াটিয়া নিষ্ক্রিয় করা হলো
+            activeTenant.IsActive = false;
         }
 
-        // ফ্ল্যাট স্ট্যাটাস Available করা হলো
         flat.Status = FlatStatus.Available;
 
         await _context.SaveChangesAsync();
@@ -212,7 +213,6 @@ public class FlatsController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok(flat);
     }
-
 
     // DELETE: api/flats/{id}
     [HttpDelete("{id:int}")]

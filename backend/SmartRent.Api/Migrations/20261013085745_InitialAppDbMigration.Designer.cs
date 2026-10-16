@@ -12,8 +12,8 @@ using SmartRent.Api.Data;
 namespace SmartRent.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261011171241_BulkInvoicesModale")]
-    partial class BulkInvoicesModale
+    [Migration("20261013085745_InitialAppDbMigration")]
+    partial class InitialAppDbMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,40 @@ namespace SmartRent.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("SmartRent.Api.Models.Expense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime>("ExpenseDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("FlatId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FlatId");
+
+                    b.ToTable("Expenses");
+                });
 
             modelBuilder.Entity("SmartRent.Api.Models.Flat", b =>
                 {
@@ -156,6 +190,58 @@ namespace SmartRent.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Tenants");
+                });
+
+            modelBuilder.Entity("SmartRentApi.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            FullName = "System Administrator",
+                            PasswordHash = "$2a$11$NptSE.CWQtreNwNDVu/ImezrJsoFvmjmzUPjxIx4urrL7yNVkmDta",
+                            Role = "Admin",
+                            Username = "admin"
+                        });
+                });
+
+            modelBuilder.Entity("SmartRent.Api.Models.Expense", b =>
+                {
+                    b.HasOne("SmartRent.Api.Models.Flat", "Flat")
+                        .WithMany()
+                        .HasForeignKey("FlatId");
+
+                    b.Navigation("Flat");
                 });
 
             modelBuilder.Entity("SmartRent.Api.Models.Invoice", b =>

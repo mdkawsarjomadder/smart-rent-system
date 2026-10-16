@@ -31,27 +31,54 @@ export default function AssignTenantModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.flatId) {
-      setErrorMsg('Please select a vacant flat.');
-      return;
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setErrorMsg("");
+
+  if (!formData.flatId || Number(formData.flatId) === 0) {
+    setErrorMsg("Please select a vacant flat.");
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    // DTO-র সাথে হুবহু মিলিয়ে পেলোড তৈরি:
+    const payload = {
+      fullName: formData.fullName.trim(),
+      phoneNumber: formData.phoneNumber.trim(),
+      nidNumber: formData.nidNumber ? formData.nidNumber.trim() : "",
+      securityDeposit: Number(formData.securityDeposit) || 0,
+      flatId: Number(formData.flatId),
+      moveInDate: new Date().toISOString(), // ভ্যালিড UTC ISO স্ট্রিং
+      isActive: true,
+    };
+
+    const token = localStorage.getItem("smartrent_token") || localStorage.getItem("token");
+
+    const res = await fetch("http://127.0.0.1:5075/api/tenants", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      throw new Error(errorData?.message || "Failed to assign tenant. Please verify inputs.");
     }
 
-    setSubmitting(true);
-    setErrorMsg(null);
-
-    try {
-      await createTenant(formData);
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to assign tenant. Please verify inputs.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    onSuccess(); // ড্যাশবোর্ড রিফ্রেশ
+    onClose();   // মোডাল বন্ধ
+  } catch (err: any) {
+    setErrorMsg(err.message || "Failed to assign tenant.");
+  } 
+  finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -85,21 +112,26 @@ export default function AssignTenantModal({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Select Flat</label>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Select Flat
+            </label>
               <select
-                required
-                value={formData.flatId || vacantFlats[0]?.id}
+                value={formData.flatId || ""}
                 onChange={(e) => setFormData({ ...formData, flatId: Number(e.target.value) })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200"
+                required
               >
-                {vacantFlats.map((flat) => (
-                  <option key={flat.id} value={flat.id}>
-                    Flat {flat.flatNumber} (Floor {flat.floor}) - ৳{flat.baseRent.toLocaleString()}
-                  </option>
-                ))}
+                <option value="">-- Choose a Vacant Flat --</option>
+                {flats
+                  ?.filter((flat: any) => flat.status === 0 || flat.status === "Available")
+                  .map((flat: any) => (
+                    <option key={flat.id} value={flat.id}>
+                      Flat {flat.flatNumber} (Floor {flat.floor}) - ৳{flat.baseRent.toLocaleString()}
+                    </option>
+                  ))}
               </select>
-            </div>
+        </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>

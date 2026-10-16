@@ -12,6 +12,7 @@ import {
   Invoice,
   Expense,
 } from './services/api';
+import { useRouter } from 'next/navigation';
 import AddFlatModal from './components/AddFlatModal';
 import AssignTenantModal from './components/AssignTenantModal';
 import GenerateInvoiceModal from './components/GenerateInvoiceModal';
@@ -22,6 +23,39 @@ import FinancialReportModal from './components/FinancialReportModal';
 import FinancialChart from './components/FinancialChart';
 
 export default function HomePage() {
+  // login create
+  const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+ useEffect(() => {
+  const token = localStorage.getItem("smartrent_token") || localStorage.getItem("token");
+  const rawUser = localStorage.getItem("smartrent_user") || localStorage.getItem("user");
+
+  // টোকেন না থাকলে সরাসরি লগইনে পাঠিয়ে দেওয়া
+  if (!token) {
+    router.push("/login");
+    return;
+  }
+
+  // নিরাপদভাবে JSON পার্স করার চেক
+  if (rawUser && rawUser !== "undefined" && rawUser !== "null") {
+    try {
+      setCurrentUser(JSON.parse(rawUser));
+    } catch (err) {
+      console.error("Failed to parse user data from localStorage:", err);
+      localStorage.removeItem("smartrent_user");
+      localStorage.removeItem("user");
+      router.push("/login");
+    }
+  }
+}, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('smartrent_token');
+    localStorage.removeItem('smartrent_user');
+    router.push('/login');
+  };
+
   const [flats, setFlats] = useState<Flat[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -144,63 +178,79 @@ export default function HomePage() {
     <main className="min-h-screen bg-slate-50 p-6 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* Header Section */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800">Smart Rent Dashboard</h1>
-            <p className="text-slate-500 text-sm mt-1">Real-time overview of apartments, dues, revenue, and expenses</p>
-          </div>
+       {/* Header Section */}
+<header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b border-slate-100">
+  <div>
+    <h1 className="text-3xl font-bold text-slate-800">Smart Rent Dashboard</h1>
+    <p className="text-slate-500 text-sm mt-1">Real-time overview of apartments, dues, revenue, and expenses</p>
+  </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Tenants Directory Link */}
-            <Link
-              href="/tenants"
-              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              👥 View Tenants
-            </Link>
+  <div className="flex flex-wrap items-center gap-3">
+    {/* Tenants Directory Link */}
+    <Link
+      href="/tenants"
+      className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      👥 View Tenants
+    </Link>
 
-            {/* Add Flat Button */}
-            <button
-              onClick={() => setIsFlatModalOpen(true)}
-              className="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              + Add Flat
-            </button>
+    {/* Add Flat Button */}
+    <button
+      onClick={() => setIsFlatModalOpen(true)}
+      className="bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      + Add Flat
+    </button>
 
-            {/* Assign Tenant Button */}
-            <button
-              onClick={() => setIsTenantModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              + Assign Tenant
-            </button>
+    {/* Assign Tenant Button */}
+    <button
+      onClick={() => setIsTenantModalOpen(true)}
+      className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      + Assign Tenant
+    </button>
 
-            {/* Single Bill Button */}
-            <button
-              onClick={() => setIsInvoiceModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              + Generate Bill
-            </button>
+    {/* Single Bill Button */}
+    <button
+      onClick={() => setIsInvoiceModalOpen(true)}
+      className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      + Generate Bill
+    </button>
 
-            {/* Bulk Bill Button */}
-            <button
-              onClick={() => setIsBulkModalOpen(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              ⚡ Bulk Bills
-            </button>
+    {/* Bulk Bill Button */}
+    <button
+      onClick={() => setIsBulkModalOpen(true)}
+      className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      ⚡ Bulk Bills
+    </button>
 
-            {/* Add Expense Button */}
-            <button
-              onClick={() => setIsExpenseModalOpen(true)}
-              className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
-            >
-              - Add Expense
-            </button>
-          </div>
-        </header>
+    {/* Add Expense Button */}
+    <button
+      onClick={() => setIsExpenseModalOpen(true)}
+      className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition"
+    >
+      - Add Expense
+    </button>
+
+    {/* User Info & Logout Button */}
+    <div className="flex items-center gap-2 pl-2 sm:border-l sm:border-slate-300 ml-1">
+      {currentUser && (
+        <span className="text-xs bg-slate-100 text-slate-700 font-semibold px-2.5 py-2 rounded-xl hidden md:inline-flex items-center gap-1">
+          👤 {currentUser.fullName || currentUser.username}
+        </span>
+      )}
+      <button
+        onClick={handleLogout}
+        className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 text-xs font-semibold px-3 py-2 rounded-xl border border-rose-200 transition cursor-pointer flex items-center gap-1 shadow-sm"
+        title="Sign out"
+      >
+        🚪 Logout
+        </button>
+      </div>
+    </div>
+  </header>
 
         {error && (
           <div className="p-4 text-center text-rose-600 bg-rose-50 rounded-xl border border-rose-200">

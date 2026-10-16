@@ -1,5 +1,50 @@
 const BASE_URL = 'http://127.0.0.1:5075/api';
 
+
+//Going-------------
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  username: string;
+  fullName: string;
+  role: string;
+}
+
+// Login API Call
+export async function loginUser(credentials: LoginRequest): Promise<AuthResponse> {
+  const res = await fetch('http://localhost:5075/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(credentials),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.message || 'Login failed. Invalid credentials.');
+  }
+
+  return res.json();
+}
+
+// টোকেনসহ রিকোয়েস্ট পাঠানোর হেল্পার
+export function getAuthHeaders(): HeadersInit {
+  if (typeof window === 'undefined') {
+    return { 'Content-Type': 'application/json' };
+  }
+
+  // 'smartrent_token' অথবা 'token' - যেটি পাওয়া যায় সেটি ব্যবহার করবে
+  const token = localStorage.getItem('smartrent_token') || localStorage.getItem('token');
+
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 // Point 1: Flats Model & Fetch API
 export interface Flat {
   id: number;
@@ -12,11 +57,19 @@ export interface Flat {
   currentTenantName?: string | null;
 }
 
-export const getFlats = async (): Promise<Flat[]> => {
-  const res = await fetch(`${BASE_URL}/flats`);
+export const getFlats = async () => {
+  const res = await fetch(`${BASE_URL}/flats`, {
+    headers: getAuthHeaders(),
+  });
+
   if (!res.ok) {
-    throw new Error('Failed to fetch flats');
+    if (res.status === 401 && typeof window !== 'undefined') {
+      // সেশন শেষ হয়ে থাকলে লগইনে রিডাইরেক্ট করতে পারেন
+      window.location.href = '/login';
+    }
+    throw new Error(`Failed to fetch flats (Status: ${res.status})`);
   }
+
   return res.json();
 };
 
@@ -30,21 +83,33 @@ export interface CreateFlatInput {
   status?: number;
 }
 
-export const createFlat = async (data: CreateFlatInput): Promise<Flat> => {
-  const res = await fetch(`${BASE_URL}/flats`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ ...data, status: data.status ?? 0 }),
-  });
+  export const createFlat = async (flatData: any) => {
+    const token = localStorage.getItem('smartrent_token') || localStorage.getItem('token');
 
-  if (!res.ok) {
-    throw new Error('Failed to create new flat');
-  }
+    const res = await fetch(`${BASE_URL}/flats`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        flatNumber: flatData.flatNumber,
+        floor: Number(flatData.floor),
+        baseRent: Number(flatData.baseRent),
+        bedrooms: Number(flatData.bedrooms),
+        bathrooms: Number(flatData.bathrooms),
+        status: Number(flatData.status ?? 0), // 0 = Available
+      }),
+    });
 
-  return res.json();
-};
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Flat creation error response:", errorText);
+      throw new Error(`Failed to save flat: ${res.status} ${errorText}`);
+    }
+
+    return res.json();
+  };
 
 // Point 2.1: Vacate Flat (যোগ করা হয়েছে)
 export const vacateFlat = async (id: number): Promise<void> => {
